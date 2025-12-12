@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Medicine Reminder — Pocket Pill Game</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#6ee7b7;--muted:#94a3b8}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter, system-ui, Arial, sans-serif;background:linear-gradient(180deg,#071023 0%, #0b1726 100%);color:#e6eef6;display:flex;align-items:center;justify-content:center;height:100vh}
+    .app{width:920px;max-width:95%;display:grid;grid-template-columns:420px 1fr;gap:22px}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.04);padding:22px;border-radius:14px;box-shadow:0 8px 30px rgba(2,6,23,0.6)}
+    h1{font-size:20px;margin:0 0 12px}
+    .meta{color:var(--muted);font-size:13px;margin-bottom:8px}
+
+    /* Medicine box area */
+    .stage{display:flex;flex-direction:column;align-items:center;gap:14px}
+    .box-wrap{position:relative;width:260px;height:180px;perspective:800px}
+    .box{position:absolute;left:50%;transform:translateX(-50%);bottom:0;width:220px;height:120px;border-radius:12px;background:linear-gradient(180deg,#ffffff08,#0008);backdrop-filter:blur(2px);border:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:14px}
+    .lid{position:absolute;left:50%;transform:translateX(-50%);top:-22px;width:240px;height:48px;border-radius:10px;background:linear-gradient(180deg,#f8fafc 8%,#e2e8f0 100%);box-shadow:0 10px 30px rgba(2,6,23,0.6);display:flex;align-items:center;justify-content:center;font-weight:600;color:#0b1220;border:1px solid rgba(2,6,23,0.12)}
+    .pill{width:36px;height:18px;border-radius:18px;background:linear-gradient(90deg,#f97316,#fb923c);box-shadow:0 4px 10px rgba(0,0,0,0.4);position:relative}
+    .pill::after{content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:15px;height:2px;background:rgba(255,255,255,0.6);border-radius:2px}
+
+    /* open/close animation */
+    .lid.open{animation:lidOpen 700ms cubic-bezier(.2,.9,.2,1) forwards}
+    .lid.close{animation:lidClose 500ms cubic-bezier(.2,.9,.2,1) forwards}
+    @keyframes lidOpen{
+      0%{transform:translateX(-50%) rotateX(0) translateY(0);} 
+      40%{transform:translateX(-50%) rotateX(-30deg) translateY(-22px);} 
+      100%{transform:translateX(-50%) rotateX(-85deg) translateY(-50px);}
+    }
+    @keyframes lidClose{
+      0%{transform:translateX(-50%) rotateX(-85deg) translateY(-50px);} 
+      100%{transform:translateX(-50%) rotateX(0) translateY(0);} 
+    }
+
+    /* glow when counted taken */
+    .box.taken{box-shadow:0 12px 40px rgba(110,231,183,0.14), inset 0 1px 0 rgba(255,255,255,0.02);border:1px solid rgba(110,231,183,0.25)}
+
+    .controls{display:flex;gap:10px;align-items:center}
+    button.primary{background:linear-gradient(90deg,var(--accent),#10b981);border:none;padding:10px 14px;border-radius:10px;color:#012117;font-weight:700;cursor:pointer}
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:9px 12px;border-radius:10px;color:var(--muted);cursor:pointer}
+
+    /* Counter */
+    .counter{margin-top:6px;font-size:14px}
+
+    /* Right side: player animation */
+    .play-area{display:flex;flex-direction:column;gap:12px}
+    .screen{flex:1;display:flex;align-items:center;justify-content:center;padding:18px;border-radius:12px;background:linear-gradient(180deg,#051025 0%, #07162a 100%);border:1px solid rgba(255,255,255,0.03)}
+
+    /* simple person + cup animation using SVG */
+    .actor{width:220px;height:220px;position:relative}
+    .cup{position:absolute;left:50%;transform:translateX(-50%);bottom:28px}
+
+    /* cup raise animation */
+    .cup.raise{animation:cupRaise 1400ms ease-in-out forwards}
+    @keyframes cupRaise{
+      0%{transform:translateX(-50%) translateY(0) rotate(0);} 
+      40%{transform:translateX(-50%) translateY(-42px) rotate(-10deg);} 
+      70%{transform:translateX(-50%) translateY(-50px) rotate(-6deg);} 
+      100%{transform:translateX(-50%) translateY(0) rotate(0);} 
+    }
+
+    /* pill fall into mouth */
+    .pill-drop{position:absolute;left:50%;transform:translateX(-50%);top:20px;width:14px;height:8px;background:linear-gradient(90deg,#fb923c,#f97316);border-radius:8px;opacity:0}
+    .pill-drop.animate{animation:pillDrop 900ms ease-in forwards}
+    @keyframes pillDrop{
+      0%{opacity:1; transform:translate(-50%,-10px) scale(1);} 
+      60%{transform:translate(-50%,48px) scale(1.05);} 
+      100%{opacity:0; transform:translate(-50%,64px) scale(.9);} 
+    }
+
+    /* small swallow / throat pulse */
+    .throat{position:absolute;left:50%;transform:translateX(-50%);top:96px;width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,0.03)}
+    .throat.swallow{animation:throatPulse 700ms ease-in-out forwards}
+    @keyframes throatPulse{
+      0%{transform:translateX(-50%) scale(1);} 
+      50%{transform:translateX(-50%) scale(0.84);} 
+      100%{transform:translateX(-50%) scale(1);} 
+    }
+
+    .footer{font-size:13px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+    .badge{background:rgba(255,255,255,0.03);padding:6px 8px;border-radius:8px;font-weight:600}
+    .small{font-size:12px;color:var(--muted)}
+
+    /* responsive */
+    @media (max-width:880px){.app{grid-template-columns:1fr;grid-auto-rows:auto}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card">
+      <h1>Pocket Pill — daily medicine reminder</h1>
+      <div class="meta">Open the box to mark today's dose as taken. Watch the animation of drinking.</div>
+
+      <div class="stage">
+        <div class="box-wrap" aria-hidden="false">
+          <div id="lid" class="lid">My Medicine</div>
+          <div id="box" class="box">
+            <div style="height:36px"></div>
+            <div style="display:flex;gap:10px;align-items:center">
+              <div id="pill" class="pill" aria-hidden="true"></div>
+              <div style="color:var(--muted);font-size:13px">Tap to open</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="openBtn" class="primary">Open / Take</button>
+          <button id="closeBtn" class="ghost">Close</button>
+          <div class="counter" id="counter">Today's dose: <strong id="status">Not taken</strong></div>
+        </div>
+
+        <div class="footer">
+          <div class="badge" id="streak">Streak: 0</div>
+          <div class="small">Local save (browser)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card play-area">
+      <h1 style="margin-bottom:0">Take-a-pill animation</h1>
+      <div class="meta">After opening the box your avatar will drink water and swallow the pill.</div>
+      <div class="screen" role="img" aria-label="Animation area">
+        <div class="actor" id="actor">
+          <!-- simple face + throat + cup + pill drop built with divs for pure CSS animation -->
+          <svg width="220" height="220" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <!-- head -->
+            <circle cx="110" cy="88" r="46" fill="#f6f9fb" opacity="0.95"/>
+            <!-- eyes -->
+            <circle cx="95" cy="80" r="4" fill="#0b1220"/>
+            <circle cx="125" cy="80" r="4" fill="#0b1220"/>
+            <!-- mouth -->
+            <path id="mouth" d="M95 100 q15 16 30 0" stroke="#0b1220" stroke-width="3" fill="none" stroke-linecap="round"/>
+          </svg>
+
+          <div id="throat" class="throat" aria-hidden="true"></div>
+          <div id="pillDrop" class="pill-drop" aria-hidden="true"></div>
+
+          <div id="cup" class="cup">
+            <svg width="72" height="72" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
+              <rect x="6" y="18" width="52" height="36" rx="6" ry="6" fill="#eef2ff" opacity="0.9" stroke="#cbd5e1"/>
+              <rect x="12" y="26" width="40" height="18" rx="4" ry="4" fill="#e6f0ff"/>
+              <path d="M58 32 a8 8 0 1 0 0 8" fill="none" stroke="#cbd5e1" stroke-width="2"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button id="playAnim" class="primary">Play animation</button>
+        <button id="resetDay" class="ghost">Reset today</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* Utility: date string YYYY-MM-DD */
+    function todayKey(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0') }
+
+    const lid = document.getElementById('lid');
+    const box = document.getElementById('box');
+    const openBtn = document.getElementById('openBtn');
+    const closeBtn = document.getElementById('closeBtn');
+    const status = document.getElementById('status');
+    const streak = document.getElementById('streak');
+    const playAnim = document.getElementById('playAnim');
+    const resetDay = document.getElementById('resetDay');
+
+    const pillDrop = document.getElementById('pillDrop');
+    const cup = document.getElementById('cup');
+    const throat = document.getElementById('throat');
+
+    // Local storage keys
+    const STORAGE_KEY = 'pocketpill.v1';
+
+    function loadState(){
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(!raw) return {lastDate:null, taken:false, streak:0};
+        return JSON.parse(raw);
+      }catch(e){return {lastDate:null,taken:false,streak:0}}
+    }
+    function saveState(s){ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
+
+    function resetIfNeeded(state){
+      const td = todayKey();
+      if(state.lastDate !== td){
+        state.taken = false; // new day
+        // if lastDate was yesterday, keep streak else reset
+        if(state.lastDate){
+          const prev = new Date(state.lastDate);
+          const cur = new Date(td);
+          const diff = Math.round((cur - prev)/(24*60*60*1000));
+          if(diff === 1){ /* continue streak */ } else { state.streak = 0 }
+        }
+        state.lastDate = td;
+        saveState(state);
+      }
+      return state;
+    }
+
+    let state = loadState();
+    state = resetIfNeeded(state);
+    updateUI();
+
+    function updateUI(){
+      if(state.taken){
+        box.classList.add('taken');
+        status.textContent = 'Taken ✅';
+        openBtn.textContent = 'Taken';
+        openBtn.disabled = true;
+      } else {
+        box.classList.remove('taken');
+        status.textContent = 'Not taken';
+        openBtn.textContent = 'Open / Take';
+        openBtn.disabled = false;
+      }
+      streak.textContent = 'Streak: ' + (state.streak||0);
+    }
+
+    function animateOpen(){
+      lid.classList.remove('close');
+      void lid.offsetWidth;
+      lid.classList.add('open');
+    }
+    function animateClose(){
+      lid.classList.remove('open');
+      void lid.offsetWidth;
+      lid.classList.add('close');
+    }
+
+    openBtn.addEventListener('click', ()=>{
+      // open, mark taken, play animation sequence
+      animateOpen();
+      // mark taken immediately when opened
+      if(!state.taken){
+        state.taken = true;
+        state.lastDate = todayKey();
+        state.streak = (state.streak || 0) + 1;
+        saveState(state);
+        updateUI();
+      }
+
+      // after short delay, play actor animation
+      setTimeout(()=>{
+        playTakeAnimation();
+      }, 420);
+    });
+
+    closeBtn.addEventListener('click', ()=>{ animateClose(); });
+
+    playAnim.addEventListener('click', ()=>{ playTakeAnimation(); });
+
+    resetDay.addEventListener('click', ()=>{
+      // allow user to reset today's taken state for testing
+      state.taken = false; state.streak = 0; state.lastDate = todayKey(); saveState(state); updateUI();
+      alert('Today reset. You can open the box again to mark taken.');
+    })
+
+    function playTakeAnimation(){
+      // cup raise
+      cup.classList.remove('raise');
+      void cup.offsetWidth;
+      cup.classList.add('raise');
+
+      // show pill drop timed to cup movement
+      pillDrop.classList.remove('animate');
+      // position pillDrop above the mouth area
+      pillDrop.style.left = '50%';
+      pillDrop.style.top = '56px';
+      void pillDrop.offsetWidth;
+      setTimeout(()=>{ pillDrop.classList.add('animate'); }, 260);
+
+      // throat swallow at the right moment
+      throat.classList.remove('swallow');
+      setTimeout(()=>{ throat.classList.add('swallow'); }, 760);
+
+      // at end, small bounce of mouth (CSS not added) — we mimic using timeout
+      setTimeout(()=>{ /* optional: small feedback */ }, 1400);
+    }
+
+    // Accessibility: allow tapping the box itself
+    box.addEventListener('click', ()=>{ openBtn.click(); });
+    lid.addEventListener('click', ()=>{ openBtn.click(); });
+
+    // run housekeeping on load: if date advanced, reset taken to false for new day
+    (function dailyCheck(){
+      // if lastDate missing, set to today
+      if(!state.lastDate){ state.lastDate = todayKey(); saveState(state); }
+      // if lastDate !== today -> handled earlier by resetIfNeeded
+    })();
+
+    // Small: keyboard shortcut T to toggle open/take
+    window.addEventListener('keydown', (e)=>{ if(e.key.toLowerCase()==='t'){ openBtn.click(); } });
+  </script>
+</body>
+</html>
